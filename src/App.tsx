@@ -1,7 +1,7 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import "./styles.css";
 
-import { JsonRpcProvider, formatEther } from "ethers";
+import { JsonRpcProvider, formatEther, utils } from "ethers";
 
 export default function App() {
   // State variables - these store data that can change
@@ -28,7 +28,7 @@ export default function App() {
     }
     
     // Handle ETH address format validation
-    if (!walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+    if (!utils.isAddress(walletAddress.trim())) {
       setError('Please enter a valid ETH wallet address');
       return;
     }
@@ -46,7 +46,9 @@ export default function App() {
       setBalance(formatEther(balance));
       
     } catch (err) {
-      setError('Failed to fetch balance');
+      // for debugging
+      console.error(err);
+      setError('Failed to fetch balance. Please try again later');
     } finally {
       setIsLoading(false);
     }
