@@ -1,7 +1,7 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import "./styles.css";
 
-import { JsonRpcProvider, formatEther, utils } from "ethers";
+import { JsonRpcProvider, formatEther, isAddress } from 'ethers';
 
 export default function App() {
   // State variables - these store data that can change
@@ -16,6 +16,18 @@ export default function App() {
     // Clear errors when user types
     if (error) setError('');
   };
+
+  // helper function to formats the balance
+  const formatBalance = (balance: string) => {
+    const num = parseFloat(balance);
+    return num.toLocaleString(undefined, 
+      { minimumFractionDigits: 4, maximumFractionDigits: 4});
+  }
+
+  // Abbreviate wallet address
+  const shortenAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }
   
   // Event handler for form submission
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -28,7 +40,7 @@ export default function App() {
     }
     
     // Handle ETH address format validation
-    if (!utils.isAddress(walletAddress.trim())) {
+    if (!isAddress(walletAddress.trim())) {
       setError('Please enter a valid ETH wallet address');
       return;
     }
@@ -95,9 +107,16 @@ export default function App() {
         
         {/* Success state */}
         {balance && !error && (
-          <div className="mt-4 p-4 bg-green-100 border border-green-400 rounded-md">
-            <h2 className="text-lg font-semibold text-green-800 mb-2">Wallet Balance</h2>
-            <p className="text-2xl font-bold text-green-700">{balance} ETH</p>
+          <div className="mt-6 p-6 bg-white border border-green-300 rounded-lg shadow-sm">
+            <h2 className="text-lg font-semibold text-green-800 mb-1">Wallet Info</h2>
+            
+            <div className="text-sm text-gray-500 mb-2">
+              <span className="font-medium">Address:</span> {shortenAddress(walletAddress)}
+            </div>
+
+            <div className="text-lg font-bold text-green-700">
+              <span className="font-medium">Balance: </span>{formatBalance(balance)} ETH
+            </div>
           </div>
         )}
       </div>
