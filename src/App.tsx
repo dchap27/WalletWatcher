@@ -1,6 +1,8 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import "./styles.css";
 
+import { JsonRpcProvider, formatEther } from "ethers";
+
 export default function App() {
   // State variables - these store data that can change
   const [walletAddress, setWalletAddress] = useState(''); // Stores the user input
@@ -35,10 +37,14 @@ export default function App() {
     setError('');
     
     try {
-      // For now, we'll use a timeout to simulate API call
-      // We'll replace this with Etherscan API later
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setBalance('1.234'); // Placeholder value
+      // Get the wallet balance 
+      // We'll use Etherscan API here
+      const provider = new JsonRpcProvider(
+        process.env.REACT_APP_RPC_URL
+      );
+      const balance = await provider.getBalance(walletAddress);
+      setBalance(formatEther(balance));
+      
     } catch (err) {
       setError('Failed to fetch balance');
     } finally {
