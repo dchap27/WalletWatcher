@@ -65,7 +65,7 @@ const TOKENS = [
     name: "Tether"
   },
   {
-    address: "0xA0b86991C6218B36c1D19D4a2e9Eb0cE3606eB48", // USDC mainnet
+    address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC mainnet
     name: "USD Coin"
   }
 ];
@@ -126,7 +126,7 @@ export default function App() {
       setBalance(formatEther(balance));
 
       const fetchedTokenBalances = await Promise.all(
-        TOKENS.map(token =>
+        TOKENS.map(token => 
           getTokenBalance(provider, walletAddress, token.address))
       );
       setTokenBalances(fetchedTokenBalances);
