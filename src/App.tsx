@@ -1,14 +1,82 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import "./styles.css";
 
-import { JsonRpcProvider, formatEther } from "ethers";
+import { JsonRpcProvider, formatEther, isAddress, Contract, formatUnits, getAddress } from 'ethers';
+
+// Define interfaces for better type safety
+interface TokenBalance {
+  symbol?: string;
+  address: string;
+  balance: string | null;
+  decimals?: number;
+  error?: boolean;
+}
+
+const ERC20_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)"
+];
+
+export async function getTokenBalance(
+  provider: JsonRpcProvider,
+  walletAddress: string,
+  tokenAddress: string
+): Promise<TokenBalance> {
+  try {
+    // address validation
+    let checksummedTokenAddress: string;
+    try{
+      checksummedTokenAddress = getAddress(tokenAddress); // this enforces checksum
+    } catch (checksumError){
+      console.error(`Invalid address format for ${tokenAddress}:`, checksumError);
+      return {
+        address: tokenAddress,
+        balance: null,
+        error: true
+      };
+    }
+    const tokenContract = new Contract(checksummedTokenAddress, ERC20_ABI, provider);
+    const [rawBalance, decimals, symbol] = await Promise.all([
+      tokenContract.balanceOf(walletAddress),
+      tokenContract.decimals(),
+      tokenContract.symbol()
+    ]);
+    return {
+      symbol,
+      address: checksummedTokenAddress,
+      balance: formatUnits(rawBalance, decimals),
+      decimals
+    };
+
+  } catch (err) {
+    console.error(`Error fetching token ${tokenAddress}:`, err);
+    return {
+      address: tokenAddress,
+      balance: null,
+      error: true
+    };
+  }
+}
+
+const TOKENS = [
+  {
+    address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", // USDT mainnet
+    name: "Tether"
+  },
+  {
+    address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC mainnet
+    name: "USD Coin"
+  }
+];
 
 export default function App() {
   // State variables - these store data that can change
-  const [walletAddress, setWalletAddress] = useState(''); // Stores the user input
-  const [isLoading, setIsLoading] = useState(false);      // Tracks if we're fetching data
-  const [error, setError] = useState('');                // Stores any error messages
+  const [walletAddress, setWalletAddress] = useState<string>(''); // Stores the user input
+  const [isLoading, setIsLoading] = useState<boolean>(false);      // Tracks if we're fetching data
+  const [error, setError] = useState<string>('');                // Stores any error messages
   const [balance, setBalance] = useState<string | null>(null);          // Stores the wallet balance
+  const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
   
   // Event handler for input changes
   const handleAddressChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -16,6 +84,18 @@ export default function App() {
     // Clear errors when user types
     if (error) setError('');
   };
+
+  // helper function to formats the balance
+  const formatBalance = (balance: string): string => {
+    const num = parseFloat(balance);
+    return num.toLocaleString(undefined, 
+      { minimumFractionDigits: 4, maximumFractionDigits: 4});
+  }
+
+  // Abbreviate wallet address
+  const shortenAddress = (address: string): string => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  }
   
   // Event handler for form submission
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -28,7 +108,7 @@ export default function App() {
     }
     
     // Handle ETH address format validation
-    if (!walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+    if (!isAddress(walletAddress.trim())) {
       setError('Please enter a valid ETH wallet address');
       return;
     }
@@ -44,9 +124,17 @@ export default function App() {
       );
       const balance = await provider.getBalance(walletAddress);
       setBalance(formatEther(balance));
+
+      const fetchedTokenBalances = await Promise.all(
+        TOKENS.map(token => 
+          getTokenBalance(provider, walletAddress, token.address))
+      );
+      setTokenBalances(fetchedTokenBalances);
       
     } catch (err) {
-      setError('Failed to fetch balance');
+      // for debugging
+      console.error(err);
+      setError('Failed to fetch balance. Please try again later');
     } finally {
       setIsLoading(false);
     }
@@ -93,9 +181,29 @@ export default function App() {
         
         {/* Success state */}
         {balance && !error && (
-          <div className="mt-4 p-4 bg-green-100 border border-green-400 rounded-md">
-            <h2 className="text-lg font-semibold text-green-800 mb-2">Wallet Balance</h2>
-            <p className="text-2xl font-bold text-green-700">{balance} ETH</p>
+          <div className="mt-6 p-6 bg-white border border-green-300 rounded-lg shadow-sm">
+            <h2 className="text-lg font-semibold text-green-800 mb-1">Wallet Info</h2>
+            
+            <div className="text-sm text-gray-500 mb-2">
+              <span className="font-medium">Address:</span> {shortenAddress(walletAddress)}
+            </div>
+
+            <div className="text-lg font-bold text-green-700">
+              <span className="font-medium">Balance: </span>{formatBalance(balance)} ETH
+            </div>
+          </div>
+        )}
+
+        {tokenBalances.length > 0 && (
+          <div className="mt-4 p-4 bg-blue-100 border border-blue-300 rounded-md">
+            <h2 className="text-lg font-semibold text-blue-800 mb-2">Token Balances</h2>
+            <ul className="space-y-2">
+              {tokenBalances.map((token, index) => (
+                <li key={index} className="text-blue-700 font-medium">
+                  {token.balance && token.symbol ? `${token.balance} ${token.symbol}` : 'Error loading token'}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>
