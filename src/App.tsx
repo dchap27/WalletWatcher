@@ -77,6 +77,8 @@ export default function App() {
   const [error, setError] = useState<string>('');                // Stores any error messages
   const [balance, setBalance] = useState<string | null>(null);          // Stores the wallet balance
   const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
+
+  const [ensName, setEnsName] = useState<string | null>(null); // Stores the Ens name
   
   // Event handler for input changes
   const handleAddressChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -122,6 +124,11 @@ export default function App() {
       const provider = new JsonRpcProvider(
         process.env.REACT_APP_RPC_URL
       );
+
+      // ENS Resolution
+      const resolvedENS = await provider.lookupAddress(walletAddress);
+      setEnsName(resolvedENS); 
+
       const balance = await provider.getBalance(walletAddress);
       setBalance(formatEther(balance));
 
@@ -186,6 +193,11 @@ export default function App() {
             
             <div className="text-sm text-gray-500 mb-2">
               <span className="font-medium">Address:</span> {shortenAddress(walletAddress)}
+
+              {ensName && (  
+                <p className="font-medium">ENS: 
+                <span className="text-green-700"> {ensName}</span></p>
+              )}
             </div>
 
             <div className="text-lg font-bold text-green-700">
