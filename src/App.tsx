@@ -12,6 +12,13 @@ interface TokenBalance {
   error?: boolean;
 }
 
+interface WalletInfo {
+  address: string;
+  ensName: string | null;
+  balance: string;
+  tokenBalances: TokenBalance[];
+}
+
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
   "function decimals() view returns (uint8)",
@@ -59,6 +66,11 @@ export async function getTokenBalance(
   }
 }
 
+// Helper function to check if address is an ENS name
+const isENSName = (input: string): boolean => {
+  return input.includes('.') && (input.endsWith('.eth') || input.includes('.'));
+};
+
 const TOKENS = [
   {
     address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", // USDT mainnet
@@ -72,19 +84,17 @@ const TOKENS = [
 
 export default function App() {
   // State variables - these store data that can change
-  const [walletAddress, setWalletAddress] = useState<string>(''); // Stores the user input
+  const [walletInput, setWalletInput] = useState<string>(''); // Stores the user address
   const [isLoading, setIsLoading] = useState<boolean>(false);      // Tracks if we're fetching data
   const [error, setError] = useState<string>('');                // Stores any error messages
-  const [balance, setBalance] = useState<string | null>(null);          // Stores the wallet balance
-  const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
-
-  const [ensName, setEnsName] = useState<string | null>(null); // Stores the Ens name
+  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null); // Stores complete wallet info
   
-  // Event handler for input changes
+  // Event handler for address changes
   const handleAddressChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setWalletAddress(e.target.value);
-    // Clear errors when user types
+    setWalletInput(e.target.value);
+    // Clear errors and previous results when user types
     if (error) setError('');
+    if (walletInfo) setWalletInfo(null);
   };
 
   // helper function to formats the balance
@@ -98,25 +108,54 @@ export default function App() {
   const shortenAddress = (address: string): string => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   }
+
+  // Enhanced ENS resolution function
+  const resolveAddressAndENS = async (provider: JsonRpcProvider, input: string) => {
+    let resolvedAddress: string | null;
+    let ensName: string | null = null;
+
+    try {
+      if (isENSName(input)) {
+        // Forward ENS resolution: ENS name to address
+        resolvedAddress = await provider.resolveName(input);
+        if (!resolvedAddress) {
+          throw new Error('ENS name could not be resolved');
+        }
+        ensName = input; // The input itself is the ENS name
+      } else {
+        // Input is an address, validate it
+        if (!isAddress(input.trim())) {
+          throw new Error('Please enter a valid ETH wallet address or ENS name');
+        }
+        resolvedAddress = getAddress(input.trim()); // Checksum the address
+        
+        // Reverse ENS resolution: address to ENS name
+        try {
+          ensName = await provider.lookupAddress(resolvedAddress);
+        } catch {
+          // It's okay if reverse resolution fails, not all addresses have ENS names
+        }
+      }
+
+      return { address: resolvedAddress, ensName };
+    } catch (err) {
+      throw err;
+    }
+  };
   
   // Event handler for form submission
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Prevents page refresh on form submit
     
     // Input validation
-    if (!walletAddress.trim()) {
-      setError('Please enter a wallet address');
-      return;
-    }
-    
-    // Handle ETH address format validation
-    if (!isAddress(walletAddress.trim())) {
-      setError('Please enter a valid ETH wallet address');
+    if (!walletInput.trim()) {
+      setError('Please enter a wallet address or ENS Name');
       return;
     }
     
     setIsLoading(true);
     setError('');
+    setWalletInfo(null);
     
     try {
       // Get the wallet balance 
@@ -125,23 +164,31 @@ export default function App() {
         process.env.REACT_APP_RPC_URL
       );
 
-      // ENS Resolution
-      const resolvedENS = await provider.lookupAddress(walletAddress);
-      setEnsName(resolvedENS); 
+      // Resolve address and ENS name
+      const { address, ensName } = await resolveAddressAndENS(provider, walletInput.trim());
 
-      const balance = await provider.getBalance(walletAddress);
-      setBalance(formatEther(balance));
+      // Get wallet balance
+      const balance = await provider.getBalance(address);
+      const formattedBalance = formatEther(balance);
 
       const fetchedTokenBalances = await Promise.all(
         TOKENS.map(token => 
-          getTokenBalance(provider, walletAddress, token.address))
+          getTokenBalance(provider, address, token.address))
       );
-      setTokenBalances(fetchedTokenBalances);
+      
+      // Set all wallet information
+      setWalletInfo({
+        address,
+        ensName,
+        balance: formattedBalance,
+        tokenBalances: fetchedTokenBalances
+      });
       
     } catch (err) {
       // for debugging
       console.error(err);
-      setError('Failed to fetch balance. Please try again later');
+      const errorMessage = 'Failed to fetch wallet information. Please try again later';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -156,18 +203,21 @@ export default function App() {
         
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="wallet-address" className="block text-sm font-medium text-gray-700 mb-2">
-              Ethereum Wallet Address
+            <label htmlFor="wallet-input" className="block text-sm font-medium text-gray-700 mb-2">
+              Ethereum Address or ENS Name
             </label>
             <input
-              id="wallet-address"
+              id="wallet-input"
               type="text"
-              value={walletAddress}
+              value={walletInput}
               onChange={handleAddressChange}
-              placeholder="0x..."
+              placeholder="0x... or abc.eth"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={isLoading}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter an Ethereum address (0x...) or ENS name (.eth)
+            </p>
           </div>
           
           <button
@@ -175,7 +225,7 @@ export default function App() {
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isLoading}
           >
-            {isLoading ? 'Checking...' : 'Check Balance'}
+            {isLoading ? 'Checking...' : 'Check Wallet'}
           </button>
         </form>
         
@@ -187,35 +237,54 @@ export default function App() {
         )}
         
         {/* Success state */}
-        {balance && !error && (
+        {walletInfo && !error && (
           <div className="mt-6 p-6 bg-white border border-green-300 rounded-lg shadow-sm">
-            <h2 className="text-lg font-semibold text-green-800 mb-1">Wallet Info</h2>
+            <h2 className="text-lg font-semibold text-green-800 mb-1">Wallet Information</h2>
             
-            <div className="text-sm text-gray-500 mb-2">
-              <span className="font-medium">Address:</span> {shortenAddress(walletAddress)}
+            <div className="space-y-2 mb-4">
+              <div className="text-sm">
+                <span className="font-medium text-gray-600">Address:</span>
+                <br />
+                <span className="text-gray-800 font-mono text-xs">{shortenAddress(walletInfo.address)}</span>
+              </div>
 
-              {ensName && (  
-                <p className="font-medium">ENS: 
-                <span className="text-green-700"> {ensName}</span></p>
+              {walletInfo.ensName && (  
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600">ENS Name:</span>
+                  <br />
+                  <span className="text-green-700 font-medium">{walletInfo.ensName}</span>
+                </div>
               )}
-            </div>
 
-            <div className="text-lg font-bold text-green-700">
-              <span className="font-medium">Balance: </span>{formatBalance(balance)} ETH
+              <div className="text-sm">
+                <span className="font-medium text-gray-600">ETH Balance:</span>
+                <br />
+                <span className="text-lg font-bold text-green-700">
+                  {formatBalance(walletInfo.balance)} ETH
+                </span>
+              </div>
             </div>
           </div>
         )}
 
-        {tokenBalances.length > 0 && (
-          <div className="mt-4 p-4 bg-blue-100 border border-blue-300 rounded-md">
-            <h2 className="text-lg font-semibold text-blue-800 mb-2">Token Balances</h2>
-            <ul className="space-y-2">
-              {tokenBalances.map((token, index) => (
-                <li key={index} className="text-blue-700 font-medium">
-                  {token.balance && token.symbol ? `${token.balance} ${token.symbol}` : 'Error loading token'}
-                </li>
+        {walletInfo && walletInfo.tokenBalances.length > 0 && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <h3 className="text-lg font-semibold text-blue-800 mb-3">Token Balances</h3>
+            <div className="space-y-2">
+              {walletInfo.tokenBalances.map((token, index) => (
+                <div key={index} className="flex justify-between items-center py-2 px-3 bg-white rounded border">
+                  <span className="font-medium text-gray-700">
+                    {token.symbol || 'Unknown Token'}
+                  </span>
+                  <span className="text-blue-700 font-medium">
+                    {token.balance && !token.error 
+                      ? `${parseFloat(token.balance).toLocaleString(undefined, { maximumFractionDigits: 4 })}`
+                      : 'Error'
+                    }
+                  </span>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
       </div>
