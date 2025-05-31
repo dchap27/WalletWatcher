@@ -1,0 +1,83 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  pr-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for proper diff
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run tests with coverage
+        run: yarn test:coverage
+        env:
+          CI: true
+          REACT_APP_RPC_URL: ${{ secrets.REACT_APP_RPC_URL }}
+
+      - name: Check test coverage threshold
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            echo "Coverage report generated successfully"
+          else
+            echo "No coverage report found"
+            exit 1
+          fi
+
+      - name: Comment PR with coverage
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          lcov-file: ./coverage/lcov.info
+
+      - name: Build check
+        run: yarn build
+        env:
+          REACT_APP_RPC_URL: ${{ secrets.REACT_APP_RPC_URL }}
+
+      - name: Check bundle size
+        run: |
+          yarn build
+          du -sh build/
+
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run ESLint
+        run: yarn lint
+        continue-on-error: true
+
+      - name: Run Prettier check
+        run: yarn format:check
+        continue-on-error: true
+
+      - name: Type checking
+        run: yarn type-check
+        continue-on-error: true

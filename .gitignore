@@ -2,3 +2,7 @@ node_modules
 .codesandbox/
 .vscode/
 .env
+# Test coverage
+coverage/
+reports/
+.nyc_output/
