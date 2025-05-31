@@ -18,6 +18,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^29.5.14",
     "@types/react": "18.2.38",
     "@types/react-dom": "18.2.15",
     "@typescript-eslint/eslint-plugin": "^8.32.1",
@@ -40,9 +45,14 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test --env=jsdom",
+    "test:coverage": "react-scripts test --coverage --coverageReporters=text-lcov --coverageReporters=html --watchAll=false",
+    "test:ci": "react-scripts test --coverage --coverageReporters=text-lcov --watchAll=false --ci",
     "eject": "react-scripts eject",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
-    "format": "prettier --write 'src/**/*.{ts,tsx,json,css,md}'"
+    "lint:fix": "eslint src/ --ext .ts,.tsx,.js,.jsx --fix",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write 'src/**/*.{ts,tsx,json,css,md}'",
+    "format:check": "prettier --check src/"
   },
   "browserslist": [
     ">0.2%",

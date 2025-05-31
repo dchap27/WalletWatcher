@@ -1,12 +1,15 @@
 {
   "extends": [
     "react-app",
-    "prettier"
+    "prettier",
+    "react-app/jest"
   ],
   "rules": {
     "react/jsx-filename-extension": [1, { "extensions": [".tsx"] }],
     "react/react-in-jsx-scope": "off",
     "import/extensions": "off",
-    "import/no-extraneous-dependencies": "off"
+    "import/no-extraneous-dependencies": "off",
+    "no-console": "warn",
+    "no-debugger": "error"
   }
 }

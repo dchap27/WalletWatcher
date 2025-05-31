@@ -1,5 +1,6 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import "./styles.css";
+import { logger } from './utils/logger';
 
 import { JsonRpcProvider, formatEther, isAddress, Contract, formatUnits, getAddress } from 'ethers';
 
@@ -36,7 +37,7 @@ export async function getTokenBalance(
     try{
       checksummedTokenAddress = getAddress(tokenAddress); // this enforces checksum
     } catch (checksumError){
-      console.error(`Invalid address format for ${tokenAddress}:`, checksumError);
+      logger.error(`Invalid address format for ${tokenAddress}:`, checksumError);
       return {
         address: tokenAddress,
         balance: null,
@@ -57,7 +58,7 @@ export async function getTokenBalance(
     };
 
   } catch (err) {
-    console.error(`Error fetching token ${tokenAddress}:`, err);
+    logger.error(`Error fetching token ${tokenAddress}:`, err);
     return {
       address: tokenAddress,
       balance: null,
@@ -186,8 +187,8 @@ export default function App() {
       
     } catch (err) {
       // for debugging
-      console.error(err);
-      const errorMessage = 'Failed to fetch wallet information. Please try again later';
+      logger.error("Failed: ", err);
+      const errorMessage = `${err}.\n\n Please try again later`;
       setError(errorMessage);
     } finally {
       setIsLoading(false);

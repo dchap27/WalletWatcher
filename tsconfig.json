@@ -11,6 +11,7 @@
             "dom",
             "es2015"
         ],
-        "jsx": "react-jsx"
+        "jsx": "react-jsx",
+        "types": ["jest"]
     }
 }
