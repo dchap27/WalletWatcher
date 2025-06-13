@@ -115,33 +115,29 @@ export default function App() {
     let resolvedAddress: string | null;
     let ensName: string | null = null;
 
-    try {
-      if (isENSName(input)) {
-        // Forward ENS resolution: ENS name to address
-        resolvedAddress = await provider.resolveName(input);
-        if (!resolvedAddress) {
-          throw new Error('ENS name could not be resolved');
-        }
-        ensName = input; // The input itself is the ENS name
-      } else {
-        // Input is an address, validate it
-        if (!isAddress(input.trim())) {
-          throw new Error('Please enter a valid ETH wallet address or ENS name');
-        }
-        resolvedAddress = getAddress(input.trim()); // Checksum the address
-        
-        // Reverse ENS resolution: address to ENS name
-        try {
-          ensName = await provider.lookupAddress(resolvedAddress);
-        } catch {
-          // It's okay if reverse resolution fails, not all addresses have ENS names
-        }
+    if (isENSName(input)) {
+      // Forward ENS resolution: ENS name to address
+      resolvedAddress = await provider.resolveName(input);
+      if (!resolvedAddress) {
+        throw new Error('ENS name could not be resolved');
       }
-
-      return { address: resolvedAddress, ensName };
-    } catch (err) {
-      throw err;
+      ensName = input; // The input itself is the ENS name
+    } else {
+      // Input is an address, validate it
+      if (!isAddress(input.trim())) {
+        throw new Error('Please enter a valid ETH wallet address or ENS name');
+      }
+      resolvedAddress = getAddress(input.trim()); // Checksum the address
+      
+      // Reverse ENS resolution: address to ENS name
+      try {
+        ensName = await provider.lookupAddress(resolvedAddress);
+      } catch {
+        // It's okay if reverse resolution fails, not all addresses have ENS names
+      }
     }
+    return { address: resolvedAddress, ensName };
+    
   };
   
   // Event handler for form submission
