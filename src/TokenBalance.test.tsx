@@ -5,16 +5,21 @@ jest.mock('ethers');
 
 describe('getTokenBalance function', () => {
   let mockProvider: jest.Mocked<JsonRpcProvider>;
-  let mockContract: any;
+  // let mockContract: any;
+  let mockContract: jest.Mocked<{
+    balanceOf: jest.MockedFunction<(address: string) => Promise<string>>;
+    decimals: jest.MockedFunction<() => Promise<number>>;
+    symbol: jest.MockedFunction<() => Promise<string>>;
+  }>;
 
   beforeEach(() => {
     mockContract = {
       balanceOf: jest.fn(),
       decimals: jest.fn(),
       symbol: jest.fn(),
-    } as unknown as Contract;
+    };
     
-    jest.mocked(Contract).mockImplementation(() => mockContract);
+    jest.mocked(Contract).mockImplementation(() => mockContract  as unknown as Contract);
     
     mockProvider = new JsonRpcProvider() as jest.Mocked<JsonRpcProvider>;
   });
