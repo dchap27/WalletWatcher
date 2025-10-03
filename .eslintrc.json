@@ -11,5 +11,13 @@
     "import/no-extraneous-dependencies": "off",
     "no-console": "warn",
     "no-debugger": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/utils/logger.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
 }

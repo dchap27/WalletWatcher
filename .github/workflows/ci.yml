@@ -12,11 +12,26 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: ['18', '20']
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          # Pin to specific yarn version for consistency
+          corepack prepare yarn@1.22.22 --activate
+          yarn --version
+
+      - name: Configure yarn network settings
+        run: |
+          yarn config set network-timeout 300000
+          yarn config set registry https://registry.npmjs.org/
+          yarn config set httpRetryCount 5  
+          yarn config set prefer-offline false
+          yarn config set enableStrictSsl false
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -25,13 +40,19 @@ jobs:
           cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: |
+          echo "Starting yarn install with enhanced error handling..."
+          yarn install --frozen-lockfile --verbose --network-timeout 600000 || {
+            echo "First attempt failed, trying with different registry..."
+            yarn config set registry https://registry.yarnpkg.com/
+            yarn install --frozen-lockfile --verbose --network-timeout 600000
+          }
 
       - name: Run linting
-        run: yarn lint --if-present
+        run: yarn lint
 
       - name: Run type checking
-        run: yarn type-check --if-present
+        run: yarn type-check
 
       - name: Run tests
         run: yarn test:ci
@@ -40,11 +61,14 @@ jobs:
           REACT_APP_RPC_URL: ${{ secrets.REACT_APP_RPC_URL }}
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
+        if: success() && matrix.node-version == '20' # Only upload once
         with:
           file: ./coverage/lcov.info
           flags: unittests
           name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false # Don't fail CI if codecov fails
 
       - name: Build application
         run: yarn build
@@ -57,10 +81,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Configure yarn network settings
+        run: |
+          yarn config set network-timeout 300000
+          yarn config set registry https://registry.npmjs.org/
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '20'
           cache: 'yarn'
 
       - name: Install dependencies
